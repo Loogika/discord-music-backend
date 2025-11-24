@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Echo Test</title>
+</head>
+<body>
+<h1>WebSocket Echo Test</h1>
+
+<div>
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+</div>
+
+<div style="margin-top: 1rem;">
+    <input id="message" type="text" placeholder="Type message..." />
+    <button id="send" disabled>Send</button>
+</div>
+
+<pre id="log" style="margin-top: 1rem; border: 1px solid #ccc; padding: 0.5rem; max-height: 300px; overflow-y: auto;"></pre>
+
+<!-- Подключаем SockJS и STOMP с CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+<script>
+    let stompClient = null;
+    const logEl = document.getElementById('log');
+    const connectBtn = document.getElementById('connect');
+    const disconnectBtn = document.getElementById('disconnect');
+    const sendBtn = document.getElementById('send');
+    const messageInput = document.getElementById('message');
+
+    function log(message) {
+        logEl.textContent += message + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    connectBtn.onclick = function () {
+        const socket = new SockJS('http://localhost:8080/ws/frontend'); // endpoint из WebSocketConfig
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+            log('Connected: ' + frame);
+
+            // подписываемся на ответ
+            stompClient.subscribe('/topic/frontend/echo', function (msg) {
+                log('Received: ' + msg.body);
+            });
+
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            sendBtn.disabled = false;
+        }, function (error) {
+            log('Error: ' + error);
+        });
+    };
+
+    disconnectBtn.onclick = function () {
+        if (stompClient !== null) {
+            stompClient.disconnect(function () {
+                log('Disconnected');
+            });
+        }
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        sendBtn.disabled = true;
+    };
+
+    sendBtn.onclick = function () {
+        const text = messageInput.value || "hello";
+        log('Send: ' + text);
+
+        // отправляем на /app/frontend/echo
+        stompClient.send('/app/frontend/echo', {}, text);
+    };
+</script>
+</body>
+</html>
